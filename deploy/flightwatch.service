@@ -1,0 +1,18 @@
+[Unit]
+Description=Flight price digest to Telegram
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=flightwatch
+Group=flightwatch
+WorkingDirectory=/opt/flightwatch
+ExecStart=/usr/bin/python3 /opt/flightwatch/flightwatch.py --send --update-latest
+TimeoutStartSec=20min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/flightwatch/data
+UMask=0077

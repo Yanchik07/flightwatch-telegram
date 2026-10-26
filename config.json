@@ -1,0 +1,16 @@
+{
+  "origins": ["IJK", "SVX", "KZN", "PEE", "MOW", "UFA"],
+  "moscow_airports": ["SVO", "DME", "VKO"],
+  "destination": "CXR",
+  "departure_start": "2026-11-10",
+  "departure_end": "2026-11-30",
+  "currency": "rub",
+  "max_transfers": 1,
+  "exclude_russian_connections": true,
+  "max_price": 55000,
+  "top_n": 10,
+  "interval_seconds": 3600,
+  "quiet_start_hour": 0,
+  "quiet_end_hour": 9,
+  "night_price_threshold_rub": 37000
+}

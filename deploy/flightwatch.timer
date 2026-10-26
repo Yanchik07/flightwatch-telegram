@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly flight price digest
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=30
+Unit=flightwatch.service
+
+[Install]
+WantedBy=timers.target

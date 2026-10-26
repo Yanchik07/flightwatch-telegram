@@ -1,0 +1,10 @@
+services:
+  flightwatch:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./config.json:/app/config.json:ro
+      - flightwatch-data:/app/data
+volumes:
+  flightwatch-data:
