@@ -240,7 +240,7 @@ class MonitorTests(unittest.TestCase):
         changed = dict(row, price=row["price"] + 100)
         refreshed = fw.refresh_offers([row], [changed])
         message = fw.render_messages(refreshed, self.cfg, {})[0]
-        self.assertIn("CXR 🆕 🔴 (25 000 ₽)\n", message)
+        self.assertIn("CXR 🆕 🔴 (<s>25 000 ₽</s>) · цена изменилась\n", message)
         self.assertNotIn("🔁 🆕", message)
         same = fw.refresh_offers(refreshed, [changed])
         self.assertNotIn("🆕", fw.render_messages(same, self.cfg, {})[0])

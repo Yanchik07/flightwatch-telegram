@@ -302,7 +302,11 @@ def render_messages(offers, cfg, previous, errors=(), demo=False):
         if row.get("price_changed") and row.get("previous_price") is not None:
             direction = "🟢" if row["price"] < row["previous_price"] else "🔴"
             old_price = f"{row['previous_price']:,.0f}".replace(",", " ")
-            price_marker += f" {direction} ({old_price} {'₽' if cfg['currency'].lower() == 'rub' else cfg['currency'].upper()})"
+            old_text = f"{old_price} {'₽' if cfg['currency'].lower() == 'rub' else cfg['currency'].upper()}"
+            if row["price"] > row["previous_price"]:
+                price_marker += f" {direction} (<s>{old_text}</s>) · цена изменилась"
+            else:
+                price_marker += f" {direction} ({old_text})"
         line = (f'{symbol} <a href="{escape(url, quote=True)}"><b><u>{price} '
                 f"{'₽' if cfg['currency'].lower() == 'rub' else cfg['currency'].upper()}</u></b></a>"
                 f" · {departure_text} · {title}")
