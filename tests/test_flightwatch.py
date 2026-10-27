@@ -191,6 +191,35 @@ class MonitorTests(unittest.TestCase):
             finally:
                 db.close()
 
+    def test_cheap_alert_first_detection_and_only_new_low(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "data").mkdir()
+            (root / "resources").symlink_to(fw.ROOT / "resources", target_is_directory=True)
+            row = dict(self.rows[0], transfers=0, key="test", url="https://www.aviasales.ru/search/test")
+            with patch.object(fw, "ROOT", root), patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "-123"}), patch.object(fw, "send_telegram") as send:
+                for price, expected in [(36000, 0), (35000, 1), (35000, 0), (35500, 0), (35200, 0), (34900, 1)]:
+                    self.assertEqual(fw.send_cheap_alerts([dict(row, price=price)], self.cfg), expected)
+                self.assertEqual(send.call_count, 2)
+                self.assertIn("Дешевые авиабилеты", send.call_args.args[0][0])
+                self.assertIn("🟢 (35 000 ₽)", send.call_args.args[0][0])
+
+    def test_connection_alert_threshold_and_failed_delivery_retry(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "data").mkdir()
+            row = dict(self.rows[0], price=24999, connection_airport="CAN")
+            with patch.object(fw, "ROOT", root), patch.dict(os.environ, {"TELEGRAM_CHAT_ID": "-123"}), patch.object(fw, "render_messages", return_value=['<a href="https://example.com">test</a>']):
+                with patch.object(fw, "send_telegram", side_effect=RuntimeError("send failed")):
+                    with self.assertRaises(RuntimeError):
+                        fw.send_cheap_alerts([row], self.cfg)
+                with patch.object(fw, "send_telegram") as send:
+                    self.assertEqual(fw.send_cheap_alerts([dict(row, price=25000)], self.cfg), 0)
+                    self.assertEqual(fw.send_cheap_alerts([dict(row, unavailable=True)], self.cfg), 0)
+                    self.assertEqual(fw.send_cheap_alerts([row], self.cfg), 1)
+                    self.assertEqual(fw.send_cheap_alerts([row], self.cfg), 0)
+                    self.assertEqual(send.call_count, 1)
+
     def test_price_cap_includes_exactly_55000(self):
         rows = [dict(self.rows[0], flight_number=str(i), price=price)
                 for i, price in enumerate([54999, 55000, 55001])]

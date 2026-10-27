@@ -1,6 +1,7 @@
 """Local cached-fare monitor. Python 3.11+, standard library only."""
 
 import argparse
+from contextlib import closing
 import fcntl
 import hashlib
 from html import escape
@@ -391,6 +392,52 @@ def mark_current_prices(previous, current):
     return [matched.get(row["key"], row) for row in current]
 
 
+def cheap_alert_identity(row):
+    values = [row.get("origin_airport") or row["origin"],
+              row.get("destination_airport") or row["destination"],
+              row.get("airline"), str(row.get("flight_number", "")).lstrip("0"),
+              row["departure_at"][:10], row["transfers"], row.get("connection_airport")]
+    return hashlib.sha256(json.dumps(values).encode()).hexdigest()
+
+
+def send_cheap_alerts(offers, cfg):
+    chat = os.environ["TELEGRAM_CHAT_ID"]
+    currency = cfg["currency"].lower()
+    if currency != "rub":
+        return 0
+    with closing(sqlite3.connect(ROOT / "data" / "alerts.sqlite3")) as db:
+        db.execute("CREATE TABLE IF NOT EXISTS alerts (chat TEXT, currency TEXT, identity TEXT, price REAL, PRIMARY KEY(chat,currency,identity))")
+        candidates = {}
+        for row in offers:
+            threshold = {0: cfg.get("cheap_direct_threshold_rub", 36000),
+                         1: cfg.get("cheap_connection_threshold_rub", 25000)}.get(row["transfers"])
+            if row.get("unavailable") or threshold is None or not row["price"] < threshold:
+                continue
+            identity = cheap_alert_identity(row)
+            if identity not in candidates or row["price"] < candidates[identity]["price"]:
+                candidates[identity] = row
+        due = []
+        for identity, row in candidates.items():
+            saved = db.execute("SELECT price FROM alerts WHERE chat=? AND currency=? AND identity=?",
+                               (chat, currency, identity)).fetchone()
+            if saved and row["price"] >= saved[0]:
+                continue
+            item = dict(row, price_changed=bool(saved), previous_price=saved[0] if saved else None)
+            item.pop("minimum_7d", None)
+            due.append(item)
+        if not due:
+            return 0
+        rendered = render_messages(due, cfg, {})[0]
+        send_telegram(["<b>Дешевые авиабилеты</b>\n\n" + rendered])
+        displayed = rendered.count('<a href=')
+        with db:
+            for row in digest_offers(due, cfg)[:displayed]:
+                db.execute("INSERT OR REPLACE INTO alerts VALUES (?,?,?,?)",
+                           (chat, currency, cheap_alert_identity(row), row["price"]))
+        LOG.info("Отправлен отдельный алерт: %s рейсов", displayed)
+        return displayed
+
+
 def demo_offers(cfg):
     return [dict(origin=origin, destination=cfg["destination"],
                  origin_airport=origin, destination_airport=cfg["destination"],
@@ -468,6 +515,7 @@ def main():
                         snapshot = {"config": cfg, "offers": digest_offers(to_send, cfg)[:displayed]}
                         send_telegram(rendered, message_id=message_id, snapshot=snapshot)
                         LOG.info("Подборка обновлена в Telegram" if message_id is not None else "Подборка отправлена в Telegram")
+                    send_cheap_alerts(offers, cfg)
             except (RuntimeError, ValueError, OSError) as exc:
                 LOG.error("%s", exc)
                 if not args.watch:

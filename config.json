@@ -8,6 +8,8 @@
   "max_transfers": 1,
   "exclude_russian_connections": true,
   "max_price": 55000,
+  "cheap_direct_threshold_rub": 36000,
+  "cheap_connection_threshold_rub": 25000,
   "top_n": 10,
   "interval_seconds": 3600,
   "quiet_hours_enabled": false,
