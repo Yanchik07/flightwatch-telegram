@@ -75,6 +75,7 @@ class MonitorTests(unittest.TestCase):
         self.assertIn("direct=false", request.call_args_list[1].args[0])
 
     def test_quiet_hours_samara_and_strict_threshold(self):
+        self.cfg["quiet_hours_enabled"] = True
         offers = [{"price": 36999}, {"price": 37000}, {"price": 40000}]
         for timestamp in ("2026-11-10T20:00:00+00:00", "2026-11-11T04:59:59+00:00"):
             selected, quiet = fw.notification_offers(offers, self.cfg, datetime.fromisoformat(timestamp))
@@ -85,6 +86,13 @@ class MonitorTests(unittest.TestCase):
             self.assertFalse(quiet)
             self.assertEqual(selected, offers)
         self.assertEqual(fw.notification_offers([], self.cfg, datetime.fromisoformat("2026-11-11T00:00:00+04:00")), ([], True))
+
+    def test_night_updates_have_no_special_price_limit_when_disabled(self):
+        offers = [{"price": 36999}, {"price": 55000}]
+        selected, quiet = fw.notification_offers(offers, dict(self.cfg, quiet_hours_enabled=False),
+                                                 datetime.fromisoformat("2026-11-11T02:00:00+04:00"))
+        self.assertEqual(selected, offers)
+        self.assertFalse(quiet)
 
     def test_messages_fit_telegram_and_warn_on_partial_results(self):
         offers = fw.select_offers(self.rows, self.cfg, date(2026, 10, 24))

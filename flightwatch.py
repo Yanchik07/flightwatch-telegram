@@ -326,6 +326,8 @@ def render_messages(offers, cfg, previous, errors=(), demo=False):
 
 
 def notification_offers(offers, cfg, now=None):
+    if not cfg.get("quiet_hours_enabled", True):
+        return offers, False
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         raise ValueError("Для проверки ночного режима нужен часовой пояс")
